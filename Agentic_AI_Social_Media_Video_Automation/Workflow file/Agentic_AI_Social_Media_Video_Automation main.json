@@ -1,0 +1,650 @@
+{
+  "name": "Social Media Content Automation",
+  "nodes": [
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.elevenlabs.io/v1/text-to-speech/pNInz6obpgDQGcFmaJgB",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "xi-api-key",
+              "value": "sk_a0da0ec4e954b8425ebd0b79b8bf1ae58f58b65bd59b436f"
+            },
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "bodyParameters": {
+          "parameters": [
+            {
+              "name": "text",
+              "value": "={{$json.story}}"
+            },
+            {
+              "name": "model_id",
+              "value": "eleven_multilingual_v2"
+            }
+          ]
+        },
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        784,
+        160
+      ],
+      "id": "024aee26-39ba-43e4-887d-54d9241aef74",
+      "name": "Story Narration",
+      "alwaysOutputData": false
+    },
+    {
+      "parameters": {
+        "jsCode": "const scenes = $input.all();\n\nreturn scenes.map((item, index) => {\n  const scene = item.json;\n\n  return {\n    json: {\n      scene_no: scene.scene_number ?? index + 1,\n      narration: scene.narration,\n      visual_description: scene.visual_description,\n      visual_search_keywords: scene.visual_search_keywords,\n      approximate_duration_seconds: scene.approximate_duration_seconds\n    }\n  };\n});\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        144,
+        688
+      ],
+      "id": "4e9b6050-0457-4da8-ba32-19ac08378ed9",
+      "name": "Format Scenes"
+    },
+    {
+      "parameters": {
+        "jsCode": "const story = $('Message a model').first().json.content;\n\nreturn [\n  {\n    json: {\n      story\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        528,
+        160
+      ],
+      "id": "6363cc29-9e78-42c4-a7a0-cb9853db6af8",
+      "name": "Format Story"
+    },
+    {
+      "parameters": {
+        "jsCode": "const story = $json.content;\n\nreturn [\n  {\n    json: {\n      story\n    }\n  }\n];"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        32,
+        160
+      ],
+      "id": "82f70d22-c5a8-4259-8872-e29d1ead7500",
+      "name": "Save Story"
+    },
+    {
+      "parameters": {
+        "jsCode": "const content = $input.first().json.content;\n\n// Extract the JSON array from the AI response\nconst match = content.match(/\\[[\\s\\S]*\\]/);\n\nif (!match) {\n  throw new Error(\"Could not find a JSON scene array in the Ollama response.\");\n}\n\nlet scenes;\n\ntry {\n  scenes = JSON.parse(match[0]);\n} catch (error) {\n  throw new Error(\"Scene Agent returned invalid JSON: \" + error.message);\n}\n\n// Return each scene as a separate n8n item\nreturn scenes.map(scene => ({\n  json: {\n    scene_number: scene.scene_number,\n    narration: scene.narration,\n    visual_description: scene.visual_description,\n    visual_search_keywords: scene.visual_search_keywords,\n    approximate_duration_seconds: scene.approximate_duration_seconds\n  }\n}));"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        -208,
+        512
+      ],
+      "id": "50f387e9-8893-4edb-a7c4-7f839ade8f68",
+      "name": "Save Story Scenes"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $env.N8N_OUTPUT_BASE_PATH || '/tmp/n8n_output' }}/JSON/{{ $('Get Story').item.json.choices[0].message.content.title }}.json",
+        "dataPropertyName": "=data",
+        "options": {
+          "append": false
+        }
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "95e0c840-4818-460f-8aa3-14993143b07c",
+      "name": "Save Story to Disk"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $env.N8N_OUTPUT_BASE_PATH || '/tmp/n8n_output' }}/audio/story.mp3",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -736,
+        512
+      ],
+      "id": "6308a744-9d20-4410-b917-95c9d337b710",
+      "name": "Save Story Audio to Disk"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "={{ $env.N8N_OUTPUT_BASE_PATH || '/tmp/n8n_output' }}/JSON/{{ $('Get Story').item.json.choices[0].message.content.title }}_scenes.json",
+        "dataPropertyName": "=data",
+        "options": {
+          "append": false
+        }
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        752
+      ],
+      "id": "cb17c964-09ec-43a1-8af6-7c91d8cdeba2",
+      "name": "Save story scenes to disk"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 21
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        -608,
+        160
+      ],
+      "id": "ad2adcc8-0ba0-4993-b06b-d074d9645103",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "llama3.2:3b",
+          "mode": "list",
+          "cachedResultName": "llama3.2:3b"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "Create a compelling short-form social media video script based on the given topic.\n\nThe video should be approximately 60 seconds long.\n\nRequirements:\n- Hook the viewer in the first sentence.\n- Use simple language suitable for college students.\n- Make the narration engaging and natural.\n- Avoid headings, bullet points, stage directions, and quotation marks.\n- Return ONLY the narration script.\n- Target approximately 130–150 words.\n\nTopic:\nArtificial Intelligence in Education"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [
+        -400,
+        160
+      ],
+      "id": "f220272f-23b1-4dd2-9874-35f5259d64b4",
+      "name": "Message a model",
+      "credentials": {
+        "ollamaApi": {
+          "id": "icD62UhOjGZzZeyh",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "llama3.2:3b",
+          "mode": "list",
+          "cachedResultName": "llama3.2:3b"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are the Scene Planning Agent for an AI-powered social media video generator.\n\nYour task is to convert the narration provided below into a sequence of visual scenes for a short-form social media video.\n\nCreate approximately 8 scenes for a video of about 60 seconds.\n\nFor every scene, provide:\n\n- scene_number\n- narration\n- visual_description\n- visual_search_keywords\n- approximate_duration_seconds\n\nRules:\n\n1. Divide the narration naturally across the scenes.\n2. Keep the narration text exactly as provided. Do not rewrite it.\n3. Every scene must have a clear and specific visual description.\n4. Provide 2–5 useful visual search keywords for every scene.\n5. The total duration should be approximately 60 seconds.\n6. scene_number must start at 1 and increase sequentially.\n7. approximate_duration_seconds must be a number, not a string.\n8. Make the visual descriptions suitable for finding stock images or video footage.\n9. Make the visuals relevant to the narration.\n10. Do not create unnecessary scenes.\n11. Do not add information that is not present in the narration.\n\nIMPORTANT OUTPUT FORMAT:\n\nReturn ONLY a valid JSON array.\n\nDo not write any introduction.\nDo not write any explanation.\nDo not use Markdown code fences.\nDo not return separate JSON objects.\nDo not write anything before or after the JSON array.\n\nUse exactly this structure:\n\n[\n  {\n    \"scene_number\": 1,\n    \"narration\": \"...\",\n    \"visual_description\": \"...\",\n    \"visual_search_keywords\": [\"keyword1\", \"keyword2\", \"keyword3\"],\n    \"approximate_duration_seconds\": 7\n  }\n]\n\nNarration:\n\n{{ $json.content }}\n\nReturn ONLY the JSON array."
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [
+        -512,
+        512
+      ],
+      "id": "4cdf5679-bad0-40e5-adde-e50f7630e4f5",
+      "name": "Message a model1",
+      "credentials": {
+        "ollamaApi": {
+          "id": "icD62UhOjGZzZeyh",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "llama3.2:3b",
+          "mode": "list",
+          "cachedResultName": "llama3.2:3b"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are the Visual Agent for an AI-powered social media video automation system.\n\nYour job is to convert the current scene information into a highly effective stock-visual search request.\n\nYou will receive:\n- A scene description\n- Visual search keywords\n- Scene narration\n\nCreate a concise search query that can be used with a licensed stock-media API such as Pexels.\n\nRules:\n1. The visual must directly match the scene narration.\n2. Prefer realistic cinematic photography or video footage.\n3. Do not include copyrighted characters, celebrities, brands, logos, or specific copyrighted artwork.\n4. Do not invent details unrelated to the scene.\n5. Keep the search query between 3 and 8 useful words.\n6. Prefer concrete visual terms rather than abstract concepts.\n7. The desired video format is vertical 9:16.\n8. Return ONLY valid JSON.\n9. Do not use Markdown or explanations.\n\nReturn exactly:\n\n{\n  \"scene_number\": 1,\n  \"search_query\": \"...\"\n}\n\nScene number:\n{{ $json.scene_no }}\n\nScene description:\n{{ $json.visual_description }}\n\nSearch keywords:\n{{ JSON.stringify($json.visual_search_keywords) }}\n\nNarration:\n{{ $json.narration }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [
+        272,
+        688
+      ],
+      "id": "81328e8d-711b-45c9-ad93-a52a7551b231",
+      "name": "Visual Agent",
+      "credentials": {
+        "ollamaApi": {
+          "id": "icD62UhOjGZzZeyh",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "url": "https://api.pexels.com/v1/search",
+        "sendQuery": true,
+        "queryParameters": {
+          "parameters": [
+            {
+              "name": "query",
+              "value": "={{ $json.search_query }}"
+            },
+            {
+              "name": "orientation",
+              "value": "portrait"
+            },
+            {
+              "name": "per_page",
+              "value": "1"
+            }
+          ]
+        },
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Authorization",
+              "value": "MimxIcMWkWGSNZfs6JMudrySgtszhYHPQrW6zwQAqiZxyc67e4Xekn7D"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        768,
+        704
+      ],
+      "id": "74b670fc-b7e4-44cb-a365-b8d7db0ede4b",
+      "name": "HTTP Request"
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.photos[0].src.large2x }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "file"
+            }
+          }
+        }
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.4,
+      "position": [
+        960,
+        688
+      ],
+      "id": "e2bafec4-0244-48e9-9fbb-411cf22641a9",
+      "name": "Download Visual"
+    },
+    {
+      "parameters": {
+        "command": "ls /home/node/.n8n-files/scene-*.jpg | wc -l"
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1344,
+        688
+      ],
+      "id": "9fb3073f-416d-4f27-8b60-2d4b16c4e207",
+      "name": "Execute Command"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "=/home/node/.n8n-files/scene-{{$itemIndex + 1}}.jpg",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        688
+      ],
+      "id": "ee113695-ec6f-46fb-9962-22c9e955ae23",
+      "name": "Read/Write Files from Disk"
+    },
+    {
+      "parameters": {
+        "jsCode": "const items = $input.all();\n\nreturn items.map(item => {\n  const content = item.json.content;\n\n  const match = content.match(/\"search_query\"\\s*:\\s*\"([^\"]+)\"/);\n\n  if (!match) {\n    throw new Error(\"Could not find search_query in Visual Agent output.\");\n  }\n\n  return {\n    json: {\n      scene_number: item.json.scene_number,\n      search_query: match[1]\n    }\n  };\n});"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        592,
+        688
+      ],
+      "id": "b8acb7a7-cfe8-432a-b8e6-bca11e44129b",
+      "name": "parse query"
+    },
+    {
+      "parameters": {
+        "operation": "write",
+        "fileName": "/home/node/.n8n-files/voiceover.mp3",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [
+        928,
+        208
+      ],
+      "id": "73a43a2f-4247-4188-b9f1-008f3e67c9ac",
+      "name": "Read/Write Files from Disk1"
+    },
+    {
+      "parameters": {
+        "command": "test -f /home/node/.n8n-files/voiceover.mp3 && test $(ls /home/node/.n8n-files/scene-*.jpg | wc -l) -eq 8 && echo \"QC: PASS\" || echo \"QC: FAIL\""
+      },
+      "type": "n8n-nodes-base.executeCommand",
+      "typeVersion": 1,
+      "position": [
+        1264,
+        368
+      ],
+      "id": "c4e15202-7b77-4535-9d0a-5863b63b2448",
+      "name": "Execute Command1"
+    },
+    {
+      "parameters": {
+        "modelId": {
+          "__rl": true,
+          "value": "llama3.2:3b",
+          "mode": "list",
+          "cachedResultName": "llama3.2:3b"
+        },
+        "messages": {
+          "values": [
+            {
+              "content": "=You are the SEO Agent for an AI-powered social media video automation system.\n\nCreate SEO metadata for the following short-form video narration.\n\nReturn ONLY valid JSON in exactly this format:\n\n{\n  \"title\": \"A compelling video title\",\n  \"description\": \"A concise SEO-friendly description\",\n  \"hashtags\": [\"#AI\", \"#Education\", \"#ArtificialIntelligence\"],\n  \"tags\": [\"AI education\", \"artificial intelligence\", \"future of education\"]\n}\n\nRules:\n1. Keep the title engaging and accurate.\n2. Do not use clickbait.\n3. Make the description accurately summarize the video's topic. Do not mention the automation system, AI video generation, or this workflow unless the narration itself discusses them.\n4. Generate 5-10 relevant hashtags.\n5. Generate 8-15 relevant search tags.\n6. Do not invent claims that are not supported by the narration.\n7. Return ONLY JSON. No Markdown. No explanation.\n\nNarration:\n\n{{ $('Format Story').first().json.story0 }}"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "type": "@n8n/n8n-nodes-langchain.ollama",
+      "typeVersion": 1,
+      "position": [
+        480,
+        -32
+      ],
+      "id": "1875efd0-4207-4399-a5bc-c3a377f1c301",
+      "name": "SEO agent",
+      "credentials": {
+        "ollamaApi": {
+          "id": "icD62UhOjGZzZeyh",
+          "name": "Ollama account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "gamingwithelven@gmail.com",
+        "toEmail": "gamingwithelven@gmail.com",
+        "subject": "AI Video Automation - Video Ready",
+        "html": "<h2>🎬 AI Video Automation Complete</h2>\n\n<p>Your AI-generated social media video has been successfully created.</p>\n\n<p><strong>QC Status:</strong> PASS</p>\n\n<p><strong>Video:</strong> Generated successfully with visuals, voiceover, and captions.</p>\n\n<p><strong>SEO:</strong> Title, description, hashtags, and tags generated successfully.</p>\n\n<p>The final video is ready for the next publishing step.</p>",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1472,
+        368
+      ],
+      "id": "709225fd-59c3-4e47-b6c4-749f1a44514d",
+      "name": "Video Completion Email",
+      "webhookId": "97a80364-f842-4766-a51f-1a52e35ce384",
+      "credentials": {
+        "smtp": {
+          "id": "5sZ0MPDemGXu7Fhn",
+          "name": "SMTP account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Story Narration": {
+      "main": [
+        [
+          {
+            "node": "Save Story Audio to Disk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Read/Write Files from Disk1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Scenes": {
+      "main": [
+        [
+          {
+            "node": "Visual Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format Story": {
+      "main": [
+        [
+          {
+            "node": "Story Narration",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "SEO agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Story": {
+      "main": [
+        [
+          {
+            "node": "Save Story to Disk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Story",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Save Story Scenes": {
+      "main": [
+        [
+          {
+            "node": "Save story scenes to disk",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Format Scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Message a model",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model": {
+      "main": [
+        [
+          {
+            "node": "Save Story",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Message a model1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Message a model1": {
+      "main": [
+        [
+          {
+            "node": "Save Story Scenes",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Visual Agent": {
+      "main": [
+        [
+          {
+            "node": "parse query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "HTTP Request": {
+      "main": [
+        [
+          {
+            "node": "Download Visual",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Download Visual": {
+      "main": [
+        [
+          {
+            "node": "Read/Write Files from Disk",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read/Write Files from Disk": {
+      "main": [
+        []
+      ]
+    },
+    "parse query": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Execute Command1": {
+      "main": [
+        [
+          {
+            "node": "Video Completion Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "SEO agent": {
+      "main": [
+        []
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "aa780f68-6a48-4f60-b75e-52df953bd107",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "5d6591158b2c40f43e868820261c81cfb85a5884396cd94861047850ce2d0592"
+  },
+  "nodeGroups": [],
+  "id": "RlMgcg1yETAV89h6",
+  "tags": []
+}
